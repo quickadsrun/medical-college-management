@@ -4462,6 +4462,7 @@ export default function Home() {
           student={receiptData.student}
           college={currentCollege}
           onClose={() => setReceiptData(null)}
+          onDeleteTransaction={handleDeleteTransaction}
         />
       )}
 

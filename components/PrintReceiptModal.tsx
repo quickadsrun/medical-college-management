@@ -8,6 +8,7 @@ interface PrintReceiptModalProps {
   student?: Student | null;
   college?: CollegeTenant | null;
   onClose: () => void;
+  onDeleteTransaction?: (transactionId: string) => void;
 }
 
 export default function PrintReceiptModal({
@@ -15,6 +16,7 @@ export default function PrintReceiptModal({
   student,
   college,
   onClose,
+  onDeleteTransaction,
 }: PrintReceiptModalProps) {
   if (!transaction && !student) return null;
 
@@ -37,6 +39,19 @@ export default function PrintReceiptModal({
             Official Fee Receipt / Bank Voucher
           </span>
           <div className="flex items-center gap-2">
+            {transaction && onDeleteTransaction && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteTransaction(transaction.id);
+                  onClose();
+                }}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Principal Authority: Receipt Delete Karein"
+              >
+                <span>🗑️ Delete Receipt</span>
+              </button>
+            )}
             <button
               onClick={handlePrint}
               className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors"
@@ -276,15 +291,17 @@ export default function PrintReceiptModal({
               ) : null}
             </tbody>
             <tfoot className="bg-slate-50 font-bold">
-              {/* Receipt Total Received */}
-              <tr className="bg-emerald-50/90 border-t-2 border-emerald-600">
-                <td colSpan={3} className="border border-slate-300 p-2.5 text-right font-black text-slate-900 text-xs">
-                  {transaction ? 'TOTAL AMOUNT RECEIVED IN THIS RECEIPT (WASOOL SHUDA RAQAM):' : 'TOTAL AMOUNT PAID TO DATE:'}
-                </td>
-                <td className="border border-slate-300 p-2.5 text-right text-emerald-800 font-black text-sm font-mono">
-                  Rs. {receiptAmount.toLocaleString()}
-                </td>
-              </tr>
+              {/* Receipt Total Received - Hidden for transaction receipt as requested */}
+              {!transaction && (
+                <tr className="bg-emerald-50/90 border-t-2 border-emerald-600">
+                  <td colSpan={3} className="border border-slate-300 p-2.5 text-right font-black text-slate-900 text-xs">
+                    TOTAL AMOUNT PAID TO DATE:
+                  </td>
+                  <td className="border border-slate-300 p-2.5 text-right text-emerald-800 font-black text-sm font-mono">
+                    Rs. {receiptAmount.toLocaleString()}
+                  </td>
+                </tr>
+              )}
 
               {/* Current Overdue Arrears (Wajib-ul-Ada) */}
               {student && (
