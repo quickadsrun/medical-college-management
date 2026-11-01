@@ -738,10 +738,66 @@ export default function Home() {
   const handleDeleteStudent = (studentId: string, studentName: string) => {
     if (window.confirm(`Kya aap waqai student "${studentName}" ka record mukammal tor par delete karna chahte hain?`)) {
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setTransactions((prev) => prev.filter((t) => t.studentId !== studentId));
       setSelectedStudentForLedger(null);
-      setPaymentSuccessToast(`🗑️ Student "${studentName}" ka record remove kar diya gaya!`);
+      setPaymentSuccessToast(`🗑️ Student "${studentName}" aur unki tamam receipts delete kar di gayi hain!`);
       setTimeout(() => setPaymentSuccessToast(null), 4000);
     }
+  };
+
+  // Delete payment receipt / transaction with Principal Authority
+  const handleDeleteTransaction = (transactionId: string) => {
+    const isPrincipal = isPrincipalUnlocked && userRole === 'PRINCIPAL';
+    if (!isPrincipal) {
+      handleRequestPrincipalUnlock(currentTab, 'Receipt Delete Karne Ke Liye Principal PIN Enter Karein');
+      return;
+    }
+
+    const txn = transactions.find((t) => t.id === transactionId);
+    if (!txn) return;
+
+    if (
+      !window.confirm(
+        `Kya aap waqai Receipt #${txn.receiptNo} (Student: ${txn.studentName}, Amount: Rs. ${txn.amount.toLocaleString()}) delete karna chahte hain?`
+      )
+    ) {
+      return;
+    }
+
+    // 1. If student still exists, revert the fee status of the months paid in this transaction
+    if (txn.studentId) {
+      const student = students.find((s) => s.id === txn.studentId);
+      if (student) {
+        let updatedMonthlyFees = [...student.monthlyFees];
+        if (txn.monthNames && txn.monthNames.length > 0) {
+          updatedMonthlyFees = updatedMonthlyFees.map((mf) => {
+            if (txn.monthNames.includes(mf.monthName)) {
+              return {
+                ...mf,
+                paidAmount: 0,
+                status: 'DUE' as const,
+                paidDate: undefined,
+                paymentMethod: undefined,
+                transactionRef: undefined,
+              };
+            }
+            return mf;
+          });
+        }
+
+        const normalized = normalizeStudentAcademicCycle({
+          ...student,
+          monthlyFees: updatedMonthlyFees,
+        });
+
+        setStudents((prev) => prev.map((s) => (s.id === normalized.id ? normalized : s)));
+      }
+    }
+
+    // 2. Remove the transaction
+    setTransactions((prev) => prev.filter((t) => t.id !== transactionId));
+    setPaymentSuccessToast(`🗑️ Receipt #${txn.receiptNo} kamyabi se delete kar di gayi!`);
+    setTimeout(() => setPaymentSuccessToast(null), 4000);
   };
 
   // Quick Open Receive Fee for a specific student
@@ -1330,6 +1386,8 @@ export default function Home() {
               college={currentCollege}
               students={students}
               transactions={transactions}
+              isPrincipal={isPrincipalUnlocked && userRole === 'PRINCIPAL'}
+              onDeleteTransaction={handleDeleteTransaction}
               onOpenReceiveFee={(student) => {
                 setStudentForReceiveFee(student || null);
                 setIsReceiveFeeOpen(true);
@@ -2481,7 +2539,7 @@ export default function Home() {
                         <th className="py-3 px-4">Payment Method</th>
                         <th className="py-3 px-4">Reference / Slip</th>
                         <th className="py-3 px-4 text-right">Amount (PKR)</th>
-                        <th className="py-3 px-4 text-center">Print Voucher</th>
+                        <th className="py-3 px-4 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2504,7 +2562,7 @@ export default function Home() {
                           <td className="py-3 px-4 text-slate-700 font-medium">{txn.program}</td>
                           <td className="py-3 px-4">
                             <span className="px-2 py-0.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">
-                              {txn.monthNames.join(', ')}
+                              {txn.monthNames && txn.monthNames.length > 0 ? txn.monthNames.join(', ') : 'Fee Clearance'}
                             </span>
                           </td>
                           <td className="py-3 px-4 font-semibold text-slate-800">{txn.method}</td>
@@ -2515,13 +2573,35 @@ export default function Home() {
                             Rs. {txn.amount.toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <button
-                              onClick={() => setReceiptData({ transaction: txn, student: students.find((s) => s.id === txn.studentId) })}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] flex items-center gap-1 mx-auto"
-                            >
-                              <PrinterIcon className="w-3.5 h-3.5 text-slate-500" />
-                              <span>Print</span>
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setReceiptData({ transaction: txn, student: students.find((s) => s.id === txn.studentId) })}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                              >
+                                <PrinterIcon className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Print</span>
+                              </button>
+                              {isPrincipalUnlocked && userRole === 'PRINCIPAL' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTransaction(txn.id)}
+                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] rounded-lg border border-rose-200 cursor-pointer flex items-center gap-0.5"
+                                  title="Principal Authority: Receipt Delete Karein"
+                                >
+                                  <span>🗑️ Delete</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTransaction(txn.id)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-[11px] rounded-lg cursor-pointer flex items-center gap-0.5"
+                                  title="Principal PIN Required: Receipt delete karne ke liye Principal PIN darkar hai"
+                                >
+                                  <span>🔒 Delete (PIN)</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}

@@ -12,6 +12,8 @@ interface ReceptionistCounterViewProps {
   onPrintReceipt: (txn: PaymentTransaction, student?: Student) => void;
   onOpenAI: () => void;
   onOpenAdmissionForm?: () => void;
+  isPrincipal?: boolean;
+  onDeleteTransaction?: (transactionId: string) => void;
 }
 
 export default function ReceptionistCounterView({
@@ -23,6 +25,8 @@ export default function ReceptionistCounterView({
   onPrintReceipt,
   onOpenAI,
   onOpenAdmissionForm,
+  isPrincipal,
+  onDeleteTransaction,
 }: ReceptionistCounterViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [bannerSearchQuery, setBannerSearchQuery] = useState('');
@@ -408,12 +412,17 @@ export default function ReceptionistCounterView({
                 <th className="py-3 px-4">Method</th>
                 <th className="py-3 px-4 text-right">Amount (PKR)</th>
                 <th className="py-3 px-4 text-center">Print Voucher</th>
+                {onDeleteTransaction && (
+                  <th className="py-3 px-4 text-center">
+                    {isPrincipal ? 'Principal Action' : 'Action'}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {todayTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={onDeleteTransaction ? 8 : 7} className="py-8 text-center text-slate-400">
                     <p className="text-xs font-semibold">Aaj abhi tak counter par koi fee transaction record nahi hui.</p>
                   </td>
                 </tr>
@@ -427,7 +436,7 @@ export default function ReceptionistCounterView({
                       <td className="py-3 px-4 font-mono text-slate-600">{t.studentNo}</td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          {t.monthNames.join(', ')}
+                          {t.monthNames && t.monthNames.length > 0 ? t.monthNames.join(', ') : 'Fee Clearance'}
                         </span>
                       </td>
                       <td className="py-3 px-4 font-medium text-slate-700">{t.method}</td>
@@ -436,6 +445,7 @@ export default function ReceptionistCounterView({
                       </td>
                       <td className="py-3 px-4 text-center">
                         <button
+                          type="button"
                           onClick={() => onPrintReceipt(t, student)}
                           className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-[11px] shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
                         >
@@ -443,6 +453,29 @@ export default function ReceptionistCounterView({
                           <span>Print Voucher</span>
                         </button>
                       </td>
+                      {onDeleteTransaction && (
+                        <td className="py-3 px-4 text-center">
+                          {isPrincipal ? (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteTransaction(t.id)}
+                              className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-lg font-bold text-[11px] shadow-xs cursor-pointer inline-flex items-center gap-1 transition-colors"
+                              title="Principal Authority: Yeh receipt delete karein"
+                            >
+                              <span>🗑️ Delete</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteTransaction(t.id)}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg font-bold text-[11px] shadow-xs cursor-pointer inline-flex items-center gap-1 transition-colors"
+                              title="Sirf Principal ke paas receipt delete karne ka ikhtiyar hai (PIN darkar hoga)"
+                            >
+                              <span>🔒 Delete (PIN)</span>
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })
