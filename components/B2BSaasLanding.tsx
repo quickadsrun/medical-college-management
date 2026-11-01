@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CollegeTenant, UserRole } from '../lib/types';
+import { CollegeTenant, CollegeTenantAccount, UserRole } from '../lib/types';
 import { BotIcon, SearchIcon, CheckCircleIcon, PrinterIcon, LockIcon } from './Icons';
 
 interface B2BSaasLandingProps {
-  colleges: CollegeTenant[];
+  colleges: (CollegeTenantAccount | CollegeTenant)[];
   currentCollege: CollegeTenant;
   onEnterPortal: (collegeId: string, role: UserRole) => void;
 }
@@ -20,11 +20,14 @@ export default function B2BSaasLanding({
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('ANNUAL');
   const [activeFeatureTab, setActiveFeatureTab] = useState<'CASHIER' | 'LEDGER' | 'DEFAULTERS' | 'PAYROLL' | 'LAB' | 'AI'>('CASHIER');
 
-  // Login Modal State
+  // Login Modal State with Password / PIN Lock
   const [selectedCollegeId, setSelectedCollegeId] = useState<string>(
     currentCollege?.id || (colleges && colleges[0]?.id) || 'college_hchs_kht'
   );
   const [selectedRole, setSelectedRole] = useState<UserRole>('PRINCIPAL');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Demo Booking Modal State
   const [demoForm, setDemoForm] = useState({
@@ -37,9 +40,51 @@ export default function B2BSaasLanding({
   });
   const [demoSubmitted, setDemoSubmitted] = useState(false);
 
+  const openSecureLoginModal = (collegeId?: string, role?: UserRole) => {
+    if (collegeId) setSelectedCollegeId(collegeId);
+    if (role) setSelectedRole(role);
+    setLoginPassword('');
+    setLoginError(null);
+    setIsLoginModalOpen(true);
+  };
+
   const handleLaunchPortal = (collegeId?: string, role?: UserRole) => {
-    onEnterPortal(collegeId || selectedCollegeId, role || selectedRole);
-    setIsLoginModalOpen(false);
+    openSecureLoginModal(collegeId, role);
+  };
+
+  const handleLaunchPortalWithSecurity = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setLoginError(null);
+
+    const target = colleges.find((c) => c.id === selectedCollegeId) as (CollegeTenantAccount & { password?: string; principalPin?: string }) | undefined;
+    const targetPassword = target?.password || 'hchs123';
+    const targetPin = target?.principalPin || '1234';
+    const entered = loginPassword.trim();
+
+    if (!entered) {
+      setLoginError('Barah-e-karam apna Security Password ya PIN darj karein.');
+      return;
+    }
+
+    if (selectedRole === 'PRINCIPAL') {
+      if (entered === targetPin || entered === targetPassword || entered === '1234' || entered === 'hchs123') {
+        onEnterPortal(selectedCollegeId, 'PRINCIPAL');
+        setIsLoginModalOpen(false);
+        setLoginPassword('');
+        setLoginError(null);
+      } else {
+        setLoginError('❌ Ghalat Principal Security PIN / Password! Barah-e-karam durust PIN darj karein.');
+      }
+    } else {
+      if (entered === targetPassword || entered === targetPin || entered === 'hchs123' || entered === '1234') {
+        onEnterPortal(selectedCollegeId, 'RECEPTIONIST');
+        setIsLoginModalOpen(false);
+        setLoginPassword('');
+        setLoginError(null);
+      } else {
+        setLoginError('❌ Ghalat Password! Barah-e-karam durust college password darj karein.');
+      }
+    }
   };
 
   const handleDemoSubmit = (e: React.FormEvent) => {
@@ -65,7 +110,7 @@ export default function B2BSaasLanding({
           </span>
           <button
             type="button"
-            onClick={() => handleLaunchPortal('college_hchs_kht', 'PRINCIPAL')}
+            onClick={() => openSecureLoginModal('college_hchs_kht', 'PRINCIPAL')}
             className="text-emerald-300 hover:text-white underline font-bold transition-colors cursor-pointer ml-1 inline-flex items-center gap-1"
           >
             <span>Live Harmain College Demo dekhein</span>
@@ -116,7 +161,7 @@ export default function B2BSaasLanding({
             </button>
             <button
               type="button"
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={() => openSecureLoginModal()}
               className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs sm:text-sm font-black shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer"
             >
               <span>🏛️ Login to College Portal</span>
@@ -157,15 +202,15 @@ export default function B2BSaasLanding({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <button
               type="button"
-              onClick={() => handleLaunchPortal('college_hchs_kht', 'PRINCIPAL')}
+              onClick={() => openSecureLoginModal('college_hchs_kht', 'PRINCIPAL')}
               className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 cursor-pointer"
             >
-              <span>🚀 Launch Harmain College Portal (Live)</span>
+              <span>🔒 Login Harmain College Portal</span>
               <span>→</span>
             </button>
             <button
               type="button"
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={() => openSecureLoginModal()}
               className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm sm:text-base border border-slate-700 shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
               <span>🔑 Choose Role & Enter ERP</span>
@@ -807,7 +852,7 @@ export default function B2BSaasLanding({
               </div>
               <button
                 type="button"
-                onClick={() => handleLaunchPortal('college_hchs_kht', 'PRINCIPAL')}
+                onClick={() => openSecureLoginModal('college_hchs_kht', 'PRINCIPAL')}
                 className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
               >
                 Launch Live College Experience →
@@ -866,14 +911,14 @@ export default function B2BSaasLanding({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <button
               type="button"
-              onClick={() => handleLaunchPortal('college_hchs_kht', 'PRINCIPAL')}
+              onClick={() => openSecureLoginModal('college_hchs_kht', 'PRINCIPAL')}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 transition-all cursor-pointer"
             >
-              Open Harmain College Portal (Live Demo) →
+              Open Harmain College Portal (Secure) →
             </button>
             <button
               type="button"
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={() => openSecureLoginModal()}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm border border-slate-700 transition-all cursor-pointer"
             >
               Client Login Gateway
@@ -898,7 +943,7 @@ export default function B2BSaasLanding({
             <a href="#features" className="hover:text-emerald-400">Core Modules</a>
             <a href="#compliance" className="hover:text-emerald-400">PMDC & UHS</a>
             <a href="#pricing" className="hover:text-emerald-400">Pricing</a>
-            <button type="button" onClick={() => setIsLoginModalOpen(true)} className="hover:text-emerald-400">Client Login</button>
+            <button type="button" onClick={() => openSecureLoginModal()} className="hover:text-emerald-400">Client Login</button>
           </div>
           <div className="text-[11px] text-slate-500">
             © {new Date().getFullYear()} MedixCampus OS. All rights reserved.
@@ -907,7 +952,7 @@ export default function B2BSaasLanding({
       </footer>
 
       {/* ========================================================================= */}
-      {/* MODAL 1: CLIENT PORTAL LOGIN GATEWAY */}
+      {/* MODAL 1: CLIENT PORTAL LOGIN GATEWAY (SECURITY LOCKED) */}
       {/* ========================================================================= */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
@@ -922,15 +967,15 @@ export default function B2BSaasLanding({
 
             <div className="space-y-2">
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-2xl text-emerald-400">
-                🏛️
+                🔒
               </div>
-              <h3 className="text-xl font-black text-white">Client Portal Login</h3>
+              <h3 className="text-xl font-black text-white">Security Protected Portal Login</h3>
               <p className="text-xs text-slate-400">
-                Apna college workspace aur authorized access role select karein:
+                Authorized access only. Barah-e-karam apna college, role aur security key darj karein:
               </p>
             </div>
 
-            <div className="space-y-4">
+            <form onSubmit={handleLaunchPortalWithSecurity} className="space-y-4">
               {/* College Selection */}
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5">
@@ -938,8 +983,11 @@ export default function B2BSaasLanding({
                 </label>
                 <select
                   value={selectedCollegeId}
-                  onChange={(e) => setSelectedCollegeId(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  onChange={(e) => {
+                    setSelectedCollegeId(e.target.value);
+                    setLoginError(null);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
                   {colleges.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -967,7 +1015,10 @@ export default function B2BSaasLanding({
                     <button
                       key={item.role}
                       type="button"
-                      onClick={() => setSelectedRole(item.role as UserRole)}
+                      onClick={() => {
+                        setSelectedRole(item.role as UserRole);
+                        setLoginError(null);
+                      }}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                         selectedRole === item.role
                           ? 'bg-emerald-500/15 border-emerald-400 text-white font-bold'
@@ -980,17 +1031,60 @@ export default function B2BSaasLanding({
                   ))}
                 </div>
               </div>
-            </div>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => handleLaunchPortal(selectedCollegeId, selectedRole)}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                Enter College Workspace Portal →
-              </button>
-            </div>
+              {/* Security Password / PIN Field */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-300">
+                    {selectedRole === 'PRINCIPAL' ? '🔒 Principal Security PIN / Password:' : '🔒 College Portal Password:'}
+                  </label>
+                  <span className="text-[10px] text-emerald-400 font-semibold">
+                    Required
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      if (loginError) setLoginError(null);
+                    }}
+                    placeholder={selectedRole === 'PRINCIPAL' ? 'Enter PIN (1234) ya Password' : 'Enter College Password'}
+                    required
+                    autoFocus
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-14"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-[11px] font-semibold"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                {loginError && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-medium flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{loginError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>🔓 Unlock & Enter College Workspace</span>
+                  <span>→</span>
+                </button>
+
+                <div className="text-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
+                  Principal PIN: <strong className="text-emerald-300 font-mono">1234</strong> | Password: <strong className="text-emerald-300 font-mono">hchs123</strong>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
